@@ -1,9 +1,10 @@
 // 全局变量
 let currentUser = null;
-let users = JSON.parse(localStorage.getItem('users')) || [];
-let gameHistory = JSON.parse(localStorage.getItem('gameHistory')) || [];
+let users = [];
+let gameHistory = [];
 let isGameRunning = false;
 let currentLang = localStorage.getItem('currentLang') || 'zh'; // 默认中文
+const API_URL = 'http://localhost:3000/api'; // 后端API地址
 
 // 语言资源对象
 const langResources = {
@@ -199,52 +200,18 @@ const langResources = {
 const SYMBOLS = ['❌', '7️⃣', '💰', '🍒', '⭐', '🍀'];
 
 // 初始化页面
-function init() {
-    // 创建/更新管理员账号
-    const adminUsername = 'XuChen';
-    const adminPassword = '12138';
-    
-    // 检查管理员账号是否存在
-    const adminIndex = users.findIndex(user => user.username === adminUsername);
-    
-    if (adminIndex !== -1) {
-        // 更新现有管理员账号，确保admin字段为true
-        users[adminIndex].admin = true;
-        users[adminIndex].password = adminPassword;
-        localStorage.setItem('users', JSON.stringify(users));
-    } else {
-        // 创建管理员账号
-        const adminUser = {
-            username: adminUsername,
-            password: adminPassword,
-            admin: true,
-            balance: 20,
-            totalGames: 0,
-            totalInput: 0,
-            totalPrize: 0,
-            netProfit: 0,
-            winRate: 0,
-            maxDebt: 0,
-            debtStartGame: null,
-            debtDuration: 0,
-            consecutiveGames: 0,
-            gameHistory: [],
-            registeredAt: Date.now()
-        };
-        
-        // 保存管理员账号
-        users.push(adminUser);
-        localStorage.setItem('users', JSON.stringify(users));
-    }
-    
-    // 加载财富榜预览
-    updateLeaderboardPreview();
-    
+async function init() {
     // 绑定事件监听器
     bindEventListeners();
     
     // 初始化语言设置
     initLanguage();
+    
+    // 获取用户列表
+    await fetchUsers();
+    
+    // 加载财富榜预览
+    updateLeaderboardPreview();
     
     // 检查本地存储中的登录状态
     checkLoginStatus();
@@ -510,7 +477,7 @@ function initLanguage() {
 }
 
 // 显示管理员页面
-function showAdminPage() {
+async function showAdminPage() {
     if (!currentUser || !currentUser.admin) {
         alert('只有管理员可以访问此页面');
         showLoginPage();
@@ -526,11 +493,11 @@ function showAdminPage() {
     updatePageText();
     
     // 加载用户列表
-    refreshUsersList();
+    await refreshUsersList();
 }
 
 // 刷新用户列表
-function refreshUsersList() {
+async function refreshUsersList() {
     // 检查管理员权限
     if (!currentUser || !currentUser.admin) {
         alert(langResources[currentLang].adminOnly);
@@ -541,8 +508,15 @@ function refreshUsersList() {
     const usersTableBody = document.getElementById('usersTableBody');
     usersTableBody.innerHTML = '';
     
-    // 重新加载用户数据
-    users = JSON.parse(localStorage.getItem('users')) || [];
+    try {
+        // 从后端获取用户列表
+        const response = await fetch(`${API_URL}/users`);
+        if (response.ok) {
+            users = await response.json();
+        }
+    } catch (error) {
+        console.error('获取用户列表失败:', error);
+    }
     
     // 获取当前语言资源
     const resources = langResources[currentLang];
@@ -617,7 +591,7 @@ function toggleEditMode(username) {
 }
 
 // 保存用户编辑的信息
-function saveUserChanges(username) {
+async function saveUserChanges(username) {
     // 检查管理员权限
     if (!currentUser || !currentUser.admin) {
         alert('只有管理员可以执行此操作');
@@ -637,37 +611,52 @@ function saveUserChanges(username) {
         return;
     }
     
-    // 找到用户并更新信息
-    const userIndex = users.findIndex(user => user.username === username);
-    if (userIndex !== -1) {
-        users[userIndex].password = newPassword;
-        users[userIndex].balance = newBalance;
-        users[userIndex].totalGames = newTotalGames;
+    // 构建更新数据
+    const updateData = {
+        password: newPassword,
+        balance: newBalance,
+        totalGames: newTotalGames
+    };
+    
+    // 防止修改管理员自己的管理员权限，避免失去管理员权限
+    if (username !== currentUser.username) {
+        updateData.admin = newAdmin;
+    }
+    
+    try {
+        // 发送更新请求到后端
+        const response = await fetch(`${API_URL}/user/${username}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
         
-        // 防止修改管理员自己的管理员权限，避免失去管理员权限
-        if (username !== currentUser.username) {
-            users[userIndex].admin = newAdmin;
+        if (response.ok) {
+            // 更新成功，刷新用户列表
+            await refreshUsersList();
+            
+            // 更新当前用户的信息（如果编辑的是当前用户）
+            if (username === currentUser.username) {
+                const updatedUser = await response.json();
+                currentUser = updatedUser;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            }
+            
+            // 显示成功提示
+            alert('用户信息已更新');
+        } else {
+            alert('更新用户信息失败');
         }
-        
-        // 更新localStorage中的用户数据
-        localStorage.setItem('users', JSON.stringify(users));
-        
-        // 更新当前用户的信息（如果编辑的是当前用户）
-        if (username === currentUser.username) {
-            currentUser = users[userIndex];
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        }
-        
-        // 刷新用户列表
-        refreshUsersList();
-        
-        // 显示成功提示
-        alert('用户信息已更新');
+    } catch (error) {
+        console.error('更新用户信息失败:', error);
+        alert('更新用户信息失败');
     }
 }
 
 // 删除用户
-function deleteUser(username) {
+async function deleteUser(username) {
     // 检查管理员权限
     if (!currentUser || !currentUser.admin) {
         alert(langResources[currentLang].adminOnly);
@@ -683,10 +672,23 @@ function deleteUser(username) {
     }
     
     if (confirm(`${resources.confirm} ${resources.delete} ${username}?`)) {
-        users = users.filter(user => user.username !== username);
-        localStorage.setItem('users', JSON.stringify(users));
-        refreshUsersList();
-        alert(resources.userDeleted);
+        try {
+            // 发送删除请求到后端
+            const response = await fetch(`${API_URL}/user/${username}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                // 删除成功，刷新用户列表
+                await refreshUsersList();
+                alert(resources.userDeleted);
+            } else {
+                alert('删除用户失败');
+            }
+        } catch (error) {
+            console.error('删除用户失败:', error);
+            alert('删除用户失败');
+        }
     }
 }
 
@@ -845,7 +847,7 @@ function checkLoginStatus() {
 }
 
 // 用户注册
-function register() {
+async function register() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     
@@ -854,48 +856,42 @@ function register() {
         return;
     }
     
-    // 检查用户名唯一性
-    if (users.some(user => user.username === username)) {
-        alert(langResources[currentLang].usernameExists);
-        return;
+    try {
+        // 发送注册请求到后端
+        const response = await fetch(`${API_URL}/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+        
+        if (response.ok) {
+            // 注册成功，获取用户数据
+            const newUser = await response.json();
+            
+            // 更新本地用户列表
+            await fetchUsers();
+            
+            // 自动登录
+            currentUser = newUser;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            
+            // 显示游戏页面
+            showGamePage();
+        } else {
+            // 注册失败，显示错误信息
+            const errorData = await response.json();
+            alert(errorData.error || '注册失败');
+        }
+    } catch (error) {
+        console.error('注册失败:', error);
+        alert('注册失败，请稍后重试');
     }
-    
-    // 获取保存的初始余额，默认为20
-    const initialBalance = parseInt(localStorage.getItem('initialBalance')) || 20;
-    
-    // 创建新用户
-    const newUser = {
-        username: username,
-        password: password, // 实际应用中应使用密码加密
-        admin: false,
-        balance: initialBalance,
-        totalGames: 0,
-        totalInput: 0,
-        totalPrize: 0,
-        netProfit: 0,
-        winRate: 0,
-        maxDebt: 0,
-        debtStartGame: null,
-        debtDuration: 0,
-        consecutiveGames: 0,
-        gameHistory: [],
-        registeredAt: Date.now()
-    };
-    
-    // 保存用户数据
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-    
-    // 自动登录
-    currentUser = newUser;
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    
-    // 显示游戏页面
-    showGamePage();
 }
 
 // 用户登录
-function login() {
+async function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     
@@ -904,20 +900,38 @@ function login() {
         return;
     }
     
-    // 查找用户
-    const user = users.find(user => user.username === username && user.password === password);
-    
-    if (!user) {
-        alert(langResources[currentLang].loginFailed);
-        return;
+    try {
+        // 发送登录请求到后端
+        const response = await fetch(`${API_URL}/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+        
+        if (response.ok) {
+            // 登录成功，获取用户数据
+            const user = await response.json();
+            
+            // 更新本地用户列表
+            await fetchUsers();
+            
+            // 保存登录状态
+            currentUser = user;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            
+            // 显示游戏页面
+            showGamePage();
+        } else {
+            // 登录失败，显示错误信息
+            const errorData = await response.json();
+            alert(errorData.error || '登录失败');
+        }
+    } catch (error) {
+        console.error('登录失败:', error);
+        alert('登录失败，请稍后重试');
     }
-    
-    // 登录成功
-    currentUser = user;
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    
-    // 显示游戏页面
-    showGamePage();
 }
 
 // 用户登出
@@ -967,7 +981,7 @@ function showBankruptcyPage() {
 }
 
 // 更新游戏页面
-function updateGamePage() {
+async function updateGamePage() {
     // 更新用户名
     document.getElementById('currentUsername').textContent = currentUser.username;
     
@@ -986,10 +1000,10 @@ function updateGamePage() {
     updateStats();
     
     // 更新财富榜
-    updateLeaderboard();
+    await updateLeaderboard();
     
     // 更新用户排名
-    updateUserRank();
+    await updateUserRank();
 }
 
 // 更新余额显示
@@ -1119,7 +1133,7 @@ function getRandomSymbol() {
 }
 
 // 计算游戏结果
-function calculateResult(results) {
+async function calculateResult(results) {
     let prize = 0;
     
     // 检查任意图案为❌
@@ -1183,8 +1197,16 @@ function calculateResult(results) {
         ...gameRecord
     });
     
-    // 保存数据到本地存储
-    saveData();
+    // 保存游戏历史到后端
+    await saveGameHistory({
+        username: currentUser.username,
+        results: results,
+        prize: prize,
+        balance: currentUser.balance
+    });
+    
+    // 保存数据到后端
+    await saveData();
     
     // 更新游戏页面
     updateGamePage();
@@ -1244,19 +1266,14 @@ function calculateExpectedValue() {
 }
 
 // 更新财富榜预览
-function updateLeaderboardPreview() {
+async function updateLeaderboardPreview() {
     const leaderboardPreview = document.getElementById('leaderboardPreview');
     
-    // 按余额降序排序
-    const sortedUsers = [...users].sort((a, b) => {
-        if (b.balance !== a.balance) {
-            return b.balance - a.balance;
-        }
-        return a.registeredAt - b.registeredAt;
-    });
+    // 从后端获取排行榜数据
+    const leaderboardData = await fetchLeaderboard();
     
     // 只显示前3名
-    const topUsers = sortedUsers.slice(0, 3);
+    const topUsers = leaderboardData.slice(0, 3);
     
     // 清空列表
     leaderboardPreview.innerHTML = '';
@@ -1270,19 +1287,14 @@ function updateLeaderboardPreview() {
 }
 
 // 更新财富榜
-function updateLeaderboard() {
+async function updateLeaderboard() {
     const leaderboard = document.getElementById('leaderboard');
     
-    // 按余额降序排序
-    const sortedUsers = [...users].sort((a, b) => {
-        if (b.balance !== a.balance) {
-            return b.balance - a.balance;
-        }
-        return a.registeredAt - b.registeredAt;
-    });
+    // 从后端获取排行榜数据
+    const leaderboardData = await fetchLeaderboard();
     
     // 只显示前50名
-    const topUsers = sortedUsers.slice(0, 50);
+    const topUsers = leaderboardData.slice(0, 50);
     
     // 清空列表
     leaderboard.innerHTML = '';
@@ -1296,17 +1308,12 @@ function updateLeaderboard() {
 }
 
 // 更新用户排名
-function updateUserRank() {
-    // 按余额降序排序
-    const sortedUsers = [...users].sort((a, b) => {
-        if (b.balance !== a.balance) {
-            return b.balance - a.balance;
-        }
-        return a.registeredAt - b.registeredAt;
-    });
+async function updateUserRank() {
+    // 从后端获取排行榜数据
+    const leaderboardData = await fetchLeaderboard();
     
     // 查找当前用户的排名
-    const rank = sortedUsers.findIndex(user => user.username === currentUser.username) + 1;
+    const rank = leaderboardData.findIndex(user => user.username === currentUser.username) + 1;
     
     // 更新排名显示
     const resources = langResources[currentLang];
@@ -1365,16 +1372,81 @@ function closeModal() {
 }
 
 // 保存数据到本地存储
-function saveData() {
+// 从后端获取用户列表
+async function fetchUsers() {
+    try {
+        const response = await fetch(`${API_URL}/users`);
+        if (response.ok) {
+            users = await response.json();
+        }
+    } catch (error) {
+        console.error('获取用户列表失败:', error);
+    }
+}
+
+// 从后端获取排行榜数据
+async function fetchLeaderboard() {
+    try {
+        const response = await fetch(`${API_URL}/leaderboard`);
+        if (response.ok) {
+            return await response.json();
+        }
+        return [];
+    } catch (error) {
+        console.error('获取排行榜失败:', error);
+        return [];
+    }
+}
+
+// 保存用户数据到后端
+async function saveUserData(user) {
+    try {
+        const response = await fetch(`${API_URL}/user/${user.username}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(user)
+        });
+        if (response.ok) {
+            return await response.json();
+        }
+        throw new Error('保存用户数据失败');
+    } catch (error) {
+        console.error('保存用户数据失败:', error);
+    }
+}
+
+// 保存游戏历史到后端
+async function saveGameHistory(gameData) {
+    try {
+        const response = await fetch(`${API_URL}/game-history`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(gameData)
+        });
+        return response.ok;
+    } catch (error) {
+        console.error('保存游戏历史失败:', error);
+        return false;
+    }
+}
+
+async function saveData() {
     // 更新用户列表中的当前用户数据
     const userIndex = users.findIndex(user => user.username === currentUser.username);
     if (userIndex !== -1) {
         users[userIndex] = currentUser;
     }
     
-    localStorage.setItem('users', JSON.stringify(users));
+    // 保存到本地存储（作为备份）
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     localStorage.setItem('gameHistory', JSON.stringify(gameHistory));
+    
+    // 保存到后端
+    await saveUserData(currentUser);
     
     // 实时更新游戏页面显示，确保数据同步
     updateGamePage();
