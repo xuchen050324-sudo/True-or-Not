@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>幸运拉杆 - 概率实验室</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 页面1：登录/注册页 -->
+    <div id="loginPage" class="page active">
+        <div class="login-container">
+            <div class="login-main">
+                <h1>幸运拉杆 - 概率实验室</h1>
+                <!-- 语言切换按钮 -->
+                <div class="lang-switcher">
+                    <button id="lang-zh" class="btn lang-btn active">中文</button>
+                    <button id="lang-en" class="btn lang-btn">English</button>
+                </div>
+                <div class="input-group">
+                    <label for="username">用户名</label>
+                    <input type="text" id="username" placeholder="请输入用户名">
+                </div>
+                <div class="input-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" placeholder="请输入密码">
+                </div>
+                <div class="button-group">
+                    <button id="loginBtn" class="btn primary">登录</button>
+                    <button id="registerBtn" class="btn secondary">注册</button>
+                </div>
+            </div>
+            <div class="login-sidebar">
+                <div class="about">
+                    <h3>网站简介</h3>
+                    <p>这是一个数学教育工具，通过虚拟赌博游戏，让用户直观理解"数学期望为负"的概念。</p>
+                </div>
+                <div class="probability">
+                    <h3>核心概率</h3>
+                    <p>57.81% 直接归零</p>
+                    <p>期望值 -3.4元/局</p>
+                </div>
+                <div class="leaderboard-preview">
+                    <h3>🏆 财富榜预览</h3>
+                    <div class="leaderboard-list" id="leaderboardPreview"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页面2：主游戏页面 -->
+    <div id="gamePage" class="page">
+        <!-- 顶部导航栏 -->
+        <header class="top-nav">
+            <div class="logo">幸运拉杆</div>
+            <div class="lang-switcher">
+                <button id="lang-zh" class="btn lang-btn active">中文</button>
+                <button id="lang-en" class="btn lang-btn">English</button>
+            </div>
+            <div class="user-info">
+                <span id="currentUsername"></span>
+                <button id="adminBtn" class="btn admin" style="display: none;">管理面板</button>
+                <button id="logoutBtn" class="btn logout">退出登录</button>
+            </div>
+        </header>
+
+        <!-- 游戏内容区域 -->
+        <div class="game-content">
+            <div class="game-container">
+                <!-- 左侧边栏 - 财富榜 -->
+                <aside class="left-sidebar">
+                    <h2>🏆 实时财富榜</h2>
+                    <div class="leaderboard-list" id="leaderboard"></div>
+                    <div class="user-rank" id="userRank"></div>
+                    
+                    <!-- 图案概率表格 -->
+                    <div class="symbol-probability">
+                        <h2>🎲 图案概率</h2>
+                        <table id="symbolProbabilityTable">
+                            <tr>
+                                <th>图案</th>
+                                <th>概率</th>
+                            </tr>
+                            <tr>
+                                <td>❌</td>
+                                <td>25%</td>
+                            </tr>
+                            <tr>
+                                <td>7️⃣</td>
+                                <td>8.33%</td>
+                            </tr>
+                            <tr>
+                                <td>💰</td>
+                                <td>16.67%</td>
+                            </tr>
+                            <tr>
+                                <td>🍒</td>
+                                <td>16.67%</td>
+                            </tr>
+                            <tr>
+                                <td>⭐</td>
+                                <td>16.67%</td>
+                            </tr>
+                            <tr>
+                                <td>🍀</td>
+                                <td>16.67%</td>
+                            </tr>
+                        </table>
+                    </div>
+                </aside>
+
+                <!-- 中央区域 - 游戏区 -->
+                <main class="game-area">
+                    <h2>🎡 幸运拉杆</h2>
+                    <div class="wheels-container">
+                        <div class="wheel" id="wheel1"></div>
+                        <div class="wheel" id="wheel2"></div>
+                        <div class="wheel" id="wheel3"></div>
+                    </div>
+                    <button id="startGameBtn" class="btn game-btn">开始游戏</button>
+                    <div class="balance-display">
+                        <span>当前余额：</span>
+                        <span id="balance" class="balance positive">20元</span>
+                    </div>
+                </main>
+
+                <!-- 右侧边栏 - 数据面板 -->
+                <aside class="right-sidebar">
+                    <h2>📊 个人数据</h2>
+                    <div class="stats-panel">
+                        <div class="stat-item">
+                            <span class="label">余额：</span>
+                            <span id="statsBalance" class="value positive">20元</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">总游戏：</span>
+                            <span id="totalGames" class="value">0局</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">总投入：</span>
+                            <span id="totalInput" class="value">0元</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">总奖金：</span>
+                            <span id="totalPrize" class="value">0元</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">净收益：</span>
+                            <span id="netProfit" class="value">0元</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">胜率：</span>
+                            <span id="winRate" class="value">0%</span>
+                        </div>
+                    </div>
+
+                    <h2>💸 负债分析</h2>
+                    <div class="debt-panel">
+                        <div class="stat-item">
+                            <span class="label">最大负债：</span>
+                            <span id="maxDebt" class="value">0元</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">负债开始局数：</span>
+                            <span id="debtStartGame" class="value">-</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">负债持续：</span>
+                            <span id="debtDuration" class="value">0局</span>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+
+        <!-- 底部区域 - 信息栏 -->
+        <footer class="info-bar">
+            <div class="probability公示">
+                <h3>概率公示</h3>
+                <table>
+                    <tr>
+                        <th>事件</th>
+                        <th>奖金</th>
+                        <th>概率</th>
+                    </tr>
+                    <tr>
+                        <td>三个7️⃣</td>
+                        <td>50元</td>
+                        <td>0.058%</td>
+                    </tr>
+                    <tr>
+                        <td>三个相同非7️⃣图案</td>
+                        <td>16元</td>
+                        <td>1.85%</td>
+                    </tr>
+                    <tr>
+                        <td>两个7️⃣</td>
+                        <td>8元</td>
+                        <td>1.39%</td>
+                    </tr>
+                    <tr>
+                        <td>一个❌</td>
+                        <td>0元</td>
+                        <td>57.81%</td>
+                    </tr>
+                    <tr>
+                        <td>其他</td>
+                        <td>3元</td>
+                        <td>38.89%</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="prize-table">
+                <h3>奖金表</h3>
+                <ul>
+                    <li>三个7️⃣：50元</li>
+                    <li>三个相同非7️⃣：16元</li>
+                    <li>两个7️⃣：8元</li>
+                    <li>任意图案为❌：0元</li>
+                    <li>其他情况：3元</li>
+                </ul>
+            </div>
+            <div class="expected-value">
+                <h3>期望值计算器</h3>
+                <div class="calculator">
+                    <input type="number" id="gameCount" placeholder="输入局数">
+                    <button id="calculateBtn" class="btn small">计算</button>
+                    <div id="expectedResult">预期亏损：0元</div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 页面3：破产分析页 -->
+    <div id="bankruptcyPage" class="page">
+        <div class="bankruptcy-container">
+            <!-- 语言切换按钮 -->
+            <div class="lang-switcher">
+                <button id="lang-zh" class="btn lang-btn active">中文</button>
+                <button id="lang-en" class="btn lang-btn">English</button>
+            </div>
+            <h1>💥 破产分析报告</h1>
+            <div class="report-section">
+                <h2>1. 你的游戏总结</h2>
+                <div class="summary-table">
+                    <div class="summary-item">
+                        <span class="label">初始资金：</span>
+                        <span id="summaryInitial" class="value">20元</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">最终余额：</span>
+                        <span id="summaryFinal" class="value">-120元</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">总损失：</span>
+                        <span id="summaryLoss" class="value">140元</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">平均每局损失：</span>
+                        <span id="summaryAvgLoss" class="value">3.4元</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="report-section">
+                <h2>2. 数学原理</h2>
+                <div class="math-principle">
+                    <p>E(X) = Σ(概率×奖金) - 5 = -3.4元/局</p>
+                    <p>计算过程：</p>
+                    <ul>
+                        <li>每个转盘：25% ❌，8.33% 7️⃣，16.67% 💰，16.67% 🍒，16.67% ⭐，16.67% 🍀</li>
+                        <li>任意图案为❌的概率：1 - (0.75)^3 = 1 - 0.421875 = 0.578125 = 57.81%</li>
+                        <li>三个7️⃣的概率：(0.0833)^3 ≈ 0.000578 = 0.058%</li>
+                        <li>三个相同非7️⃣的概率：4 × (0.1667)^3 ≈ 4 × 0.00463 = 0.0185 = 1.85%</li>
+                        <li>两个7️⃣的概率：C(3,2) × (0.0833)^2 × 0.6667 ≈ 3 × 0.00694 × 0.6667 ≈ 0.0139 = 1.39%</li>
+                        <li>其他情况的概率：1 - 0.5781 - 0.0001 - 0.0185 - 0.0139 = 0.3889 = 38.89%</li>
+                        <li>期望奖金：0.5781×0 + 0.0001×50 + 0.0185×16 + 0.0139×8 + 0.3889×3 ≈ 0 + 0.005 + 0.296 + 0.1112 + 1.1667 ≈ 1.58元</li>
+                        <li>每局期望损失：5 - 1.58 = 3.42元 ≈ 3.4元</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="report-section">
+                <h2>3. "如果"对比</h2>
+                <div class="what-if">
+                    <p>如果第10局停止：亏损15元</p>
+                    <p>实际：继续玩117局，多亏125元</p>
+                </div>
+            </div>
+
+            <div class="report-section">
+                <h2>4. 教育结论</h2>
+                <div class="conclusion">
+                    <p>🎯 赌博是数学游戏，庄家永远有优势</p>
+                    <p>📉 数学期望为负，长期必输</p>
+                    <p>🚫 止损是唯一理性策略</p>
+                    <p>💡 理解概率，远离赌博</p>
+                </div>
+            </div>
+
+            <div class="restart-options">
+                <button id="restartGameBtn" class="btn restart-btn">重新开始</button>
+                <button id="returnGameBtn" class="btn return-btn">返回游戏</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页面4：管理员页面 -->
+    <div id="adminPage" class="page">
+        <div class="admin-container">
+            <header class="admin-header">
+                <h1>🔧 管理员控制面板</h1>
+                <div class="lang-switcher">
+                    <button id="lang-zh" class="btn lang-btn active">中文</button>
+                    <button id="lang-en" class="btn lang-btn">English</button>
+                </div>
+                <button id="backToGameBtn" class="btn back">返回游戏</button>
+            </header>
+
+            <div class="admin-content">
+                <!-- 系统设置 -->
+                <section class="admin-section">
+                    <h2>系统设置</h2>
+                    <div class="setting-group">
+                        <label id="initialBalanceLabel" for="initialBalance">初始资金：</label>
+                        <input type="number" id="initialBalance" value="20" min="0" step="1">
+                        <button id="saveInitialBtn" class="btn save">保存</button>
+                    </div>
+                    <div class="setting-group">
+                        <label id="debtLimitLabel" for="debtLimit">欠款下限：</label>
+                        <input type="number" id="debtLimit" value="-100" max="0" step="1">
+                        <button id="saveDebtLimitBtn" class="btn save">保存</button>
+                    </div>
+                    <div class="setting-group">
+                        <label id="resetBalancesLabel">重置所有用户余额：</label>
+                        <button id="resetBalancesBtn" class="btn reset">重置为当前初始资金</button>
+                    </div>
+                </section>
+
+                <!-- 用户管理 -->
+                <section class="admin-section">
+                    <h2>用户管理</h2>
+                    <div class="admin-actions">
+                        <button id="refreshUsersBtn" class="btn refresh">刷新用户列表</button>
+                        <button id="deleteTestUsersBtn" class="btn delete">删除测试数据</button>
+                    </div>
+                    <div class="users-table-container">
+                        <table class="users-table">
+                            <thead>
+                                <tr>
+                                    <th>用户名</th>
+                                    <th>密码</th>
+                                    <th>余额</th>
+                                    <th>游戏局数</th>
+                                    <th>注册时间</th>
+                                    <th>管理员</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- 教育提示弹窗 -->
+    <div id="educationModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeModal">&times;</span>
+            <div class="modal-message" id="modalMessage"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
