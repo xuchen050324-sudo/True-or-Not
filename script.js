@@ -4,7 +4,8 @@ let users = [];
 let gameHistory = [];
 let isGameRunning = false;
 let currentLang = localStorage.getItem('currentLang') || 'zh'; // 默认中文
-const API_URL = 'http://localhost:3000/api'; // 后端API地址
+// 根据当前环境动态设置API地址
+const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000/api' : '/api'; // 后端API地址
 
 // 语言资源对象
 const langResources = {
@@ -207,11 +208,18 @@ async function init() {
     // 初始化语言设置
     initLanguage();
     
-    // 获取用户列表
-    await fetchUsers();
-    
-    // 加载财富榜预览
-    updateLeaderboardPreview();
+    try {
+        // 获取用户列表
+        await fetchUsers();
+        
+        // 加载财富榜预览（使用await确保正确加载）
+        await updateLeaderboardPreview();
+    } catch (error) {
+        console.error('初始化数据失败:', error);
+        // 如果API请求失败，使用模拟数据
+        users = JSON.parse(localStorage.getItem('users')) || [];
+        updateLeaderboardPreview();
+    }
     
     // 检查本地存储中的登录状态
     checkLoginStatus();
