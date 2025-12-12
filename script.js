@@ -4,7 +4,8 @@ let users = [];
 let gameHistory = [];
 let isGameRunning = false;
 let currentLang = localStorage.getItem('currentLang') || 'zh'; // 默认中文
-const API_URL = 'http://localhost:3000/api'; // 后端API地址
+// 根据当前环境动态设置API地址
+const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000/api' : '/api'; // 后端API地址
 
 // 语言资源对象
 const langResources = {
@@ -207,11 +208,18 @@ async function init() {
     // 初始化语言设置
     initLanguage();
     
-    // 获取用户列表
-    await fetchUsers();
-    
-    // 加载财富榜预览
-    updateLeaderboardPreview();
+    try {
+        // 获取用户列表
+        await fetchUsers();
+        
+        // 加载财富榜预览（使用await确保正确加载）
+        await updateLeaderboardPreview();
+    } catch (error) {
+        console.error('初始化数据失败:', error);
+        // 如果API请求失败，使用模拟数据
+        users = JSON.parse(localStorage.getItem('users')) || [];
+        updateLeaderboardPreview();
+    }
     
     // 检查本地存储中的登录状态
     checkLoginStatus();
@@ -506,55 +514,61 @@ async function refreshUsersList() {
     }
     
     const usersTableBody = document.getElementById('usersTableBody');
-    usersTableBody.innerHTML = '';
     
     try {
-        // 从后端获取用户列表
+        // 1. 先从后端获取最新的用户数据，避免清空表格后等待
         const response = await fetch(`${API_URL}/users`);
+        let updatedUsers = [];
         if (response.ok) {
-            users = await response.json();
+            updatedUsers = await response.json();
+            users = updatedUsers; // 更新全局用户列表
         }
+        
+        // 获取当前语言资源
+        const resources = langResources[currentLang];
+        
+        // 2. 构建新的表格内容
+        let newTableContent = '';
+        updatedUsers.forEach(user => {
+            const encryptedPassword = '•••••••'; // 用7个圆点替代真实密码
+            newTableContent += `
+                <tr>
+                    <td>${user.username}</td>
+                    <td>
+                        <span id="pass-text-${user.username}">${encryptedPassword}</span>
+                        <input type="text" id="pass-input-${user.username}" value="${user.password}" style="display: none; width: 100%; padding: 2px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+                    </td>
+                    <td>
+                        <span id="bal-text-${user.username}">${user.balance}元</span>
+                        <input type="number" id="bal-input-${user.username}" value="${user.balance}" style="display: none; width: 100%; padding: 2px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+                    </td>
+                    <td>
+                        <span id="games-text-${user.username}">${user.totalGames}局</span>
+                        <input type="number" id="games-input-${user.username}" value="${user.totalGames}" style="display: none; width: 100%; padding: 2px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+                    </td>
+                    <td>${new Date(user.registeredAt).toLocaleString()}</td>
+                    <td>
+                        <span id="admin-text-${user.username}">${user.admin ? (currentLang === 'zh' ? '是' : 'Yes') : (currentLang === 'zh' ? '否' : 'No')}</span>
+                        <select id="admin-input-${user.username}" style="display: none; width: 100%; padding: 2px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
+                            <option value="false">${currentLang === 'zh' ? '否' : 'No'}</option>
+                            <option value="true" ${user.admin ? 'selected' : ''}>${currentLang === 'zh' ? '是' : 'Yes'}</option>
+                        </select>
+                    </td>
+                    <td>
+                        <button id="edit-${user.username}" class="btn edit" onclick="toggleEditMode('${user.username}')">${resources.edit}</button>
+                        <button id="save-${user.username}" class="btn save" onclick="saveUserChanges('${user.username}')" style="display: none;">${resources.save}</button>
+                        <button class="btn delete-small" onclick="deleteUser('${user.username}')">${resources.delete}</button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        // 3. 一次性更新表格内容，避免闪烁
+        usersTableBody.innerHTML = newTableContent;
+        
     } catch (error) {
         console.error('获取用户列表失败:', error);
     }
-    
-    // 获取当前语言资源
-    const resources = langResources[currentLang];
-    
-    users.forEach(user => {
-        const row = document.createElement('tr');
-        // 初始为只读模式，密码加密显示，每个单元格包含隐藏的输入框
-        const encryptedPassword = '•••••••'; // 用7个圆点替代真实密码
-        row.innerHTML = `
-            <td>${user.username}</td>
-            <td>
-                <span id="pass-text-${user.username}">${encryptedPassword}</span>
-                <input type="text" id="pass-input-${user.username}" value="${user.password}" style="display: none; width: 100%; padding: 2px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
-            </td>
-            <td>
-                <span id="bal-text-${user.username}">${user.balance}元</span>
-                <input type="number" id="bal-input-${user.username}" value="${user.balance}" style="display: none; width: 100%; padding: 2px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
-            </td>
-            <td>
-                <span id="games-text-${user.username}">${user.totalGames}局</span>
-                <input type="number" id="games-input-${user.username}" value="${user.totalGames}" style="display: none; width: 100%; padding: 2px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
-            </td>
-            <td>${new Date(user.registeredAt).toLocaleString()}</td>
-            <td>
-                <span id="admin-text-${user.username}">${user.admin ? (currentLang === 'zh' ? '是' : 'Yes') : (currentLang === 'zh' ? '否' : 'No')}</span>
-                <select id="admin-input-${user.username}" style="display: none; width: 100%; padding: 2px; border: 1px solid #ddd; border-radius: 3px; box-sizing: border-box;">
-                    <option value="false">${currentLang === 'zh' ? '否' : 'No'}</option>
-                    <option value="true" ${user.admin ? 'selected' : ''}>${currentLang === 'zh' ? '是' : 'Yes'}</option>
-                </select>
-            </td>
-            <td>
-                <button id="edit-${user.username}" class="btn edit" onclick="toggleEditMode('${user.username}')">${resources.edit}</button>
-                <button id="save-${user.username}" class="btn save" onclick="saveUserChanges('${user.username}')" style="display: none;">${resources.save}</button>
-                <button class="btn delete-small" onclick="deleteUser('${user.username}')">${resources.delete}</button>
-            </td>
-        `;
-        usersTableBody.appendChild(row);
-    });
 }
 
 // 切换编辑模式
